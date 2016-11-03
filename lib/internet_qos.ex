@@ -1,0 +1,2 @@
+defmodule InternetQOS do
+end
