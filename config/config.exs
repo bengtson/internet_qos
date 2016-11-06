@@ -28,3 +28,5 @@ use Mix.Config
 # here (which is why it is important to import them last).
 #
 #     import_config "#{Mix.env}.exs"
+config :internet_qos,
+  modem_signal_file: "/Users/bengm0ra/Projects/FileliF/Compendiums/Internet QOS/Modem - Signal.dat"
