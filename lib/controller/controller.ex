@@ -11,7 +11,7 @@ defmodule QOS.Controller do
   end
 
   def handle_info(:work, state) do
-    IO.puts "Work Now"
+#    IO.puts "Work Now"
     # Do the work you desire here
     schedule_work() # Reschedule once more
     {:noreply, state}

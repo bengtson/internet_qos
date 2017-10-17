@@ -2,6 +2,15 @@ defmodule QOS.Method.Modem do
   use GenServer
 
   @moduledoc """
+
+  NOTE: This module is not saving the data to a file at this time. It is only
+  capturing the data and providing it to Tack Status. Need to fix this.
+  The problem is that the original code was writting for only 2 up channels but
+  there can be more or less. Probably the same for the down channels. This
+  needs to be expanded to allow a variable number of channels for each sample.
+  Also needs to support the ability to save log records to the file. Consider
+  using a defined text file format instead of a compressed binary format.
+
   This is a QOS method that reads status from a cable modem and places it into a timestamp data file with a specified format.
 
   This module is specific to the following modem and version:
@@ -55,15 +64,35 @@ defmodule QOS.Method.Modem do
 
   """
 
-  @initial_state %{socket: nil, message: []}
+  @initial_state %{socket: nil, data: nil, message: []}
 
   def start_link do
-    GenServer.start_link(__MODULE__, @initial_state)
+    GenServer.start_link(__MODULE__, @initial_state, [name: ModemServer])
   end
 
   def init(state) do
-    Process.send_after(self(), :sync, 2 * 1000) # In 2 seconds start things up.
+    Process.send_after(self(), :read, 2 * 1000) # In 2 seconds start things up.
     {:ok, state}
+  end
+
+  def get_qos_data do
+    GenServer.call ModemServer, :get_qos_data
+  end
+
+  def handle_call(:get_qos_data, _from, state) do
+    {:reply, state.data, state}
+  end
+
+  def handle_info(:read, state) do
+    Process.send_after(self(), :sync, 1000) # In 1 seconds start things up.
+#    file_data = File.read!(Application.fetch_env!(:internet_qos, :modem_signal_file))
+
+#    list =
+#      for( <<
+#            seconds :: unsigned-integer-size(64),
+#               data :: binary-size(296) <- file_data
+#           >>, do: { seconds, data} )
+    {:noreply, %{ state | data: [] }}
   end
 
   @doc """
@@ -112,27 +141,44 @@ defmodule QOS.Method.Modem do
     |> Enum.join
 
     # Parse packet and write it to disk.
-    get_table_data packet_data
+    sample = get_table_data packet_data
+    IO.inspect sample
+
+#    << time :: unsigned-integer-size(64),
+#       data :: binary >> = sample
+#    s = {time, data}
+
+#    data = state[:data]
+#    data = data ++ [s]
 
     # Set state to indicate socket is closed.
-    {:noreply, %{ socket: nil, message: []}}
+    {:noreply, %{ socket: nil, message: [], data: sample}}
   end
 
-  @doc """
-  Collects a sample of data from the cable modem.
-  """
-  def get_qos_sample do
+#internet_qos bengm0ra$ iex --name one@10.0.1.21 --cookie monster -S mix
+#GenServer.call({ModemServer, :'one@10.0.1.21'}, {:retrieve, "Hi!"})
+  def handle_call({:retrieve}, from, state) do
+    IO.puts "Received :retrieve message"
 
-    # Open TCP Connection
+    {:reply, {:ok, state[:data]}, state}
+  end
+
+  # Collects a sample of data from the cable modem.
+  # Connects to the modem and issues a get for the signal data page.
+  defp get_qos_sample do
+
+    # Open TCP Connection and send the request.
     opts = [:binary, active: true]
-    {:ok, socket} = :gen_tcp.connect('192.168.100.1', 80, opts)
-
-    # Make request to modem for signal data.
     request = "GET /cmSignalData.htm HTTP/1.0\r\nHost: 192.168.100.1:80\r\n\r\n"
-    :ok = :gen_tcp.send(socket,request)
 
-    # Return status and the socket reference.
-    {:ok, socket}
+    with  {:ok, socket} <- :gen_tcp.connect('192.168.100.1', 80, opts),
+                    :ok <- :gen_tcp.send(socket,request)
+    do
+      {:ok, socket}
+    else
+      {:error, :enetdown} -> {:ok, nil}
+      err                 -> {:error, err}
+    end
   end
 
   # Special handling for the modem signal page. Several things are being done
@@ -152,6 +198,7 @@ defmodule QOS.Method.Modem do
     # table.
     html = Floki.find(packet_data,"table")
     html = List.delete_at(html,1)
+#    IO.inspect {:html, html}
 
     # Removes the nested table in the Downstream table.
     pre_traversal = fn node, acc ->
@@ -174,6 +221,16 @@ defmodule QOS.Method.Modem do
     # Traverse the html to get the table data.
     {_, table_data} = Macro.traverse(html,[],pre_traversal,post_traversal)
 
+#    IO.inspect {:table_data, table_data}
+
+    [t1, t2, t3] = find_table_starts table_data
+    length = table_data |> Enum.count
+#    IO.inspect {:table_starts, t1, t2, t3, length}
+    indicies = {t1, t2, t3, length}
+
+    metrics = get_metrics table_data, indicies
+    IO.inspect {:metrics, metrics}
+
     # Table data is now as follows based on list position:
     #
     #     [0..44] - Table 1 : Downstream Channel Signals
@@ -183,12 +240,72 @@ defmodule QOS.Method.Modem do
     # Separate Upstream table.
     # Combine two Downstream tables.
 
-    upstream_data = table_data |> Enum.slice 45..65
-    downstream_data =
-      (table_data |> Enum.slice 0..44)
-      ++
-      (table_data |> Enum.slice 75..102)
-    generate_downstream_sample_string downstream_data
+#    upstream_data = table_data |> Enum.slice 45..65
+#    IO.inspect {:upstream, upstream_data}
+#    downstream_data =
+#      (table_data |> Enum.slice 0..44)
+#      ++
+#      (table_data |> Enum.slice 75..102)
+#    generate_downstream_sample_string downstream_data
+    metrics
+  end
+
+  defp get_metrics table, {t1, t2, t3, ln} do
+
+    t1_chans = div((t2-t1), 5) - 1
+    t2_chans = div((t3-t2), 7) - 1
+    t3_chans = div((ln-t3), 4) - 1
+
+#    IO.inspect {:chan_count, t1_chans, t2_chans, t3_chans}
+
+    dn_power =
+      table
+      |> Enum.drop(4*(t1_chans+1)+1)
+      |> Enum.take(t1_chans)
+      |> Enum.map(&String.trim/1)
+      |> Enum.map(&String.split(&1, " "))
+      |> Enum.map(fn [pw,_] -> Integer.parse(pw) |> elem(0) end)
+
+    dn_ave = (dn_power |> Enum.sum) / t1_chans
+#    IO.inspect {:dn_ave, dn_ave}
+    dn_std =
+      dn_power
+      |> Enum.map(fn p -> (p - dn_ave) * (p - dn_ave) end)
+      |> Enum.sum
+    dn_std = :math.sqrt(dn_std / t1_chans)
+
+    up_power =
+      table
+      |> Enum.slice(t2..t3-1)
+      |> Enum.drop(4*(t2_chans+1)+1)
+      |> Enum.take(t2_chans)
+      |> Enum.map(&String.trim/1)
+      |> Enum.map(&String.split(&1, " "))
+      |> Enum.map(fn [pw,_] -> Integer.parse(pw) |> elem(0) end)
+
+    up_ave = (up_power |> Enum.sum) / t2_chans
+#    IO.inspect {:up_ave, up_ave}
+    up_std =
+      up_power
+      |> Enum.map(fn p -> (p - up_ave) * (p - up_ave) end)
+      |> Enum.sum
+    up_std = :math.sqrt(up_std / t1_chans)
+#    IO.inspect {:up_std, up_std}
+
+    %{
+      dn_chans: t1_chans, dn_ave: dn_ave, dn_std: dn_std,
+      up_chans: t2_chans, up_ave: up_ave, up_std: up_std
+    }
+
+  end
+
+  # Finds the list entry numbers for cells with "Channel ID". There should
+  # be 3 of these. Indexes returned are zero based.
+  defp find_table_starts data do
+    data
+    |> Enum.with_index
+    |> Enum.filter( fn {v, i} -> v == "Channel ID" end)
+    |> Enum.map( fn {v, i} -> i end)
   end
 
   @doc """
@@ -210,8 +327,8 @@ defmodule QOS.Method.Modem do
 
   def element_timestamp do
     { megaseconds, seconds, microseconds } =  :erlang.timestamp
-    millis_stamp = (megaseconds * 1000000 + seconds) * 1000 + div(microseconds,1000)
-    << millis_stamp :: unsigned-integer-size(64) >>
+    seconds_stamp = (megaseconds * 1000000 + seconds)
+    << seconds_stamp :: unsigned-integer-size(64) >>
   end
 
   def element_channel_data(channel, data) do

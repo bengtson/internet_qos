@@ -7,7 +7,8 @@ defmodule InternetQOS do
 
     children = [
       supervisor(QOS.Controller, []),
-      supervisor(QOS.Method.Modem, [])
+      supervisor(QOS.Method.Modem, []),
+      supervisor(TackStatus.Internet, [])
     ]
 
     opts = [strategy: :one_for_one, name: QOS.Supervisor]

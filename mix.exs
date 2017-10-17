@@ -30,8 +30,9 @@ defmodule InternetQOS.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:timex, "~> 3.0.8"},
-      {:floki, "~> 0.11.0"}
+      {:timex, "~> 3.1.24"},
+      {:floki, "~> 0.18.0"},
+      {:poison, "~> 3.1"}
     ]
   end
 end

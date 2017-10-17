@@ -30,3 +30,7 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 config :internet_qos,
   modem_signal_file: "/Users/bengm0ra/Projects/FileliF/Compendiums/Internet QOS/Modem - Signal.dat"
+
+  # Status server configuration
+config :internet_qos, :status_server,
+  host: 'localhost', port: 21200, start: :true
