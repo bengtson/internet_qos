@@ -1,23 +1,14 @@
 # InternetQOS
 
-Monitors home internet access using several methods. Provides channels for alerts and charting showing current and historical quality of service.
-
-Methods for measuring internet quality of service are:
-
-- Upstream / Downstream Signal Levels Reported By Cable Modem
-- Ping Times To One Or More Internet Servers
-
-Possible QOS methods that could be added:
-
-- File Upload / Download Speed Checks
-
-Data from the measuring methods are stored in one or more files with an associated timestamp. Full definition for the file needs to be specified.
+Monitors home internet access by looking at the signal page of the Motorola
+modem web page. Data is captured at the top of each minute and pushed every 10
+seconds to the Tack Status application. Yes, 1 minute and 10 seconds makes no
+sense.
 
 ## To Do List
 
-- Figure out how to periodically sample each module.
-- Have modem module do a timeout and set a null packet.
-- Have modem module do a get at 0 seconds of each minute.
+Need to revise how samples are stored to a file. Preferably, these would
+be in a readable but also scannable format.
 
 ## Installation
 

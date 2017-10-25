@@ -83,6 +83,12 @@ defmodule QOS.Method.Modem do
     {:reply, state.data, state}
   end
 
+  def handle_call({:retrieve}, _from, state) do
+    IO.puts "Received :retrieve message"
+
+    {:reply, {:ok, state[:data]}, state}
+  end
+
   def handle_info(:read, state) do
     Process.send_after(self(), :sync, 1000) # In 1 seconds start things up.
 #    file_data = File.read!(Application.fetch_env!(:internet_qos, :modem_signal_file))
@@ -115,7 +121,7 @@ defmodule QOS.Method.Modem do
   def handle_info(:sample, state) do
 
     # Get the sample request started.
-    get_qos_sample
+    get_qos_sample()
 
     # Next state will be to synchronize for the next cycle.
     Process.send_after(self(), :sync, 2 * 1000)
@@ -126,14 +132,14 @@ defmodule QOS.Method.Modem do
   @doc """
   Everytime a packet is received on the socket, the data is sent to this genserver method. Append the packet data to the message in the state.
   """
-  def handle_info({:tcp, socket, msg}, %{message: message} = state) do
+  def handle_info({:tcp, _socket, msg}, %{message: message} = state) do
     {:noreply, %{ state | message: (message ++ [msg]) } }
   end
 
   @doc """
   Handles the closing of the socket. The socket is closed by the modem once the page has been delivered to the client. Parse the packet and append the data to to the data file.
   """
-  def handle_info({:tcp_closed, socket}, state) do
+  def handle_info({:tcp_closed, _socket}, state) do
 
     # Combine all packets received into a single binary.
     packet_data =
@@ -157,12 +163,6 @@ defmodule QOS.Method.Modem do
 
 #internet_qos bengm0ra$ iex --name one@10.0.1.21 --cookie monster -S mix
 #GenServer.call({ModemServer, :'one@10.0.1.21'}, {:retrieve, "Hi!"})
-  def handle_call({:retrieve}, from, state) do
-    IO.puts "Received :retrieve message"
-
-    {:reply, {:ok, state[:data]}, state}
-  end
-
   # Collects a sample of data from the cable modem.
   # Connects to the modem and issues a get for the signal data page.
   defp get_qos_sample do
@@ -202,7 +202,7 @@ defmodule QOS.Method.Modem do
     # Removes the nested table in the Downstream table.
     pre_traversal = fn node, acc ->
       case node do
-        {"td",[],["Power Level" | tail]} ->
+        {"td",[],["Power Level" | _tail]} ->
           { {"td",[],["Power Level"]}, acc}
         _ -> {node, acc}
       end
@@ -211,7 +211,7 @@ defmodule QOS.Method.Modem do
     # Accumulates a list of all the table data values.
     post_traversal = fn node, acc ->
       case node do
-        {"td",[],[value | tail]} ->
+        {"td",[],[value | _tail]} ->
           {node, acc ++ [value]}
         _ -> {node, acc}
       end
@@ -249,11 +249,11 @@ defmodule QOS.Method.Modem do
     metrics
   end
 
-  defp get_metrics table, {t1, t2, t3, ln} do
+  defp get_metrics table, {t1, t2, t3, _ln} do
 
     t1_chans = div((t2-t1), 5) - 1
     t2_chans = div((t3-t2), 7) - 1
-    t3_chans = div((ln-t3), 4) - 1
+#    t3_chans = div((ln-t3), 4) - 1
 
 #    IO.inspect {:chan_count, t1_chans, t2_chans, t3_chans}
 
@@ -303,8 +303,8 @@ defmodule QOS.Method.Modem do
   defp find_table_starts data do
     data
     |> Enum.with_index
-    |> Enum.filter( fn {v, i} -> v == "Channel ID" end)
-    |> Enum.map( fn {v, i} -> i end)
+    |> Enum.filter( fn {v, _} -> v == "Channel ID" end)
+    |> Enum.map( fn {_, i} -> i end)
   end
 
   @doc """
@@ -317,7 +317,7 @@ defmodule QOS.Method.Modem do
       |> Enum.map(&(element_channel_data(&1,data)))
       |> Enum.join
 
-      sample = element_timestamp <> sample
+      sample = element_timestamp() <> sample
 
       save_results sample
 
@@ -325,7 +325,7 @@ defmodule QOS.Method.Modem do
   end
 
   def element_timestamp do
-    { megaseconds, seconds, microseconds } =  :erlang.timestamp
+    { megaseconds, seconds, _microseconds } =  :erlang.timestamp
     seconds_stamp = (megaseconds * 1000000 + seconds)
     << seconds_stamp :: unsigned-integer-size(64) >>
   end

@@ -6,7 +6,6 @@ defmodule InternetQOS do
     import Supervisor.Spec, warn: false
 
     children = [
-      supervisor(QOS.Controller, []),
       supervisor(QOS.Method.Modem, []),
       supervisor(TackStatus.Internet, [])
     ]

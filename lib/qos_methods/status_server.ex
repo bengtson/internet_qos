@@ -23,7 +23,7 @@ defmodule TackStatus.Internet do
   is held in the state as tips. tip_inches is amount of rain for each tip.
   """
   def init (:ok) do
-    [host: host, port: port, start: start] = Application.fetch_env!(:internet_qos, :status_server)
+    [host: host, port: port, start: _start] = Application.fetch_env!(:internet_qos, :status_server)
     start()
     datetime = Timex.now("America/Chicago")
     {:ok, %{parms: %{host: host, port: port, started: datetime}, server: %{}, client: %{}}}
