@@ -115,12 +115,12 @@ defmodule QOS.Method.Modem do
   def handle_info(:sample, state) do
 
     # Get the sample request started.
-    {:ok, socket} = get_qos_sample
+    get_qos_sample
 
     # Next state will be to synchronize for the next cycle.
     Process.send_after(self(), :sync, 2 * 1000)
 
-    {:noreply, %{state | socket: socket}}
+    {:noreply, %{state | socket: nil}}
   end
 
   @doc """
@@ -176,8 +176,7 @@ defmodule QOS.Method.Modem do
     do
       {:ok, socket}
     else
-      {:error, :enetdown} -> {:ok, nil}
-      err                 -> {:error, err}
+      err                 -> err
     end
   end
 
