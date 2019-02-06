@@ -64,20 +64,33 @@ defmodule QOS.Method.Modem do
 
   """
 
-  @initial_state %{socket: nil, data: nil, message: []}
+  @initial_state %{socket: nil, data: nil, message: [], commit: nil}
 
   def start_link do
     GenServer.start_link(__MODULE__, @initial_state, name: ModemServer)
   end
 
   def init(state) do
+    # Get commit id.
+    {rev, _i} = System.cmd("git", ["rev-parse", "HEAD"])
+    commit = rev |> String.slice(0..6)
+    #    Logger.info("Commit: #{commit}")
+
     # In 2 seconds start things up.
     Process.send_after(self(), :read, 2 * 1000)
-    {:ok, state}
+    {:ok, %{state | commit: commit}}
   end
 
   def get_qos_data do
     GenServer.call(ModemServer, :get_qos_data)
+  end
+
+  def commit() do
+    GenServer.call(ModemServer, :commit)
+  end
+
+  def handle_call(:commit, _from, state) do
+    {:reply, state.commit, state}
   end
 
   def handle_call(:get_qos_data, _from, state) do

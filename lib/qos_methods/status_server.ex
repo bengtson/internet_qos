@@ -45,7 +45,10 @@ defmodule TackStatus.Internet do
   def send_status do
     data = QOS.Method.Modem.get_qos_data()
 
-    metrics = set_metrics(data)
+    ver_commit = Mix.Project.config()[:version] <> " " <> QOS.Method.Modem.commit()
+    commit_metric = %Metric{name: "Version Commit", value: ver_commit}
+
+    metrics = [commit_metric] ++ set_metrics(data)
 
     stat = %Status{
       name: "Internet Status",

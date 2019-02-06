@@ -20,4 +20,44 @@ be in a readable but also scannable format.
 ## Installation
 
   cd /home/pi
-  git clone 
+  git clone https://github.com/bengtson/internet_qos.git
+  cd /home/pi/internet_qos
+  mix deps.get
+  iex -S mix    # to test.
+  
+  
+## Updating software
+
+  sudo systemctl stop tack-internet-qos.service
+  cd /home/pi
+  sudo rm -rf internet_qos
+  git clone https://github.com/bengtson/internet_qos.git
+  cd /home/pi/internet_qos
+  mix deps.get
+  sudo systemctl start tack-internet-qos.service
+  
+  
+## Setting up 'systemd'
+
+Move the provided service file to the systemd service directory.
+
+    cd /home/pi/tack_status
+    sudo cp tack-internet-qos.service /etc/systemd/system
+    sudo systemctl enable tack-internet-qos.service
+    sudo systemctl start tack-internet-qos.service
+    
+If this is the first execution of a new version, it will take a minute or two to compile all the code. You can check on the state of the compile with:
+
+    sudo systemctl status tack-internet-qos.service
+    
+The server should now be running. Test that it restarts when the system is rebooted or the power is sequenced. A reboot takes about 30 seconds.
+
+    sudo reboot
+    
+Note : The following command shows the log for the specified service.
+
+    journalctl --unit=tack-internet-qos.service | tail -n 30
+
+  
+  
+  
