@@ -5,7 +5,7 @@ defmodule InternetQOS.Mixfile do
     [
       app: :internet_qos,
       version: "1.0.0",
-      elixir: "~> 1.8",
+      elixir: "~> 1.7",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps()
