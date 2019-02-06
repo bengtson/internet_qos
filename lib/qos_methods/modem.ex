@@ -170,7 +170,7 @@ defmodule QOS.Method.Modem do
     #    data = data ++ [s]
 
     # Set state to indicate socket is closed.
-    {:noreply, %{socket: nil, message: [], data: sample}}
+    {:noreply, %{state | socket: nil, message: [], data: sample}}
   end
 
   # internet_qos bengm0ra$ iex --name one@10.0.1.21 --cookie monster -S mix
