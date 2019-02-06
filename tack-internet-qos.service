@@ -1,0 +1,14 @@
+[Unit]
+Description=Internet QOS
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=idle
+Environment=HOME=/home/pi/
+Environment=MIX_ENV=prod
+WorkingDirectory=/home/pi/internet_qos
+ExecStart=/usr/bin/iex -S mix
+
+[Install]
+WantedBy=multi-user.target
